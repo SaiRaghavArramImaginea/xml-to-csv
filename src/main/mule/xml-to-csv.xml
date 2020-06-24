@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="ab4bc66d-7ac7-4850-a081-cfa3eb6730a7" >
+		<http:listener-connection host="0.0.0.0" port="8084" />
+	</http:listener-config>
+	<file:config name="read_File_Config" doc:name="File Config" doc:id="52986ffe-c78c-4ccf-9ca8-30cb88716ea4" >
+		<file:connection workingDir="/home/sairaghav/AnypointStudio/studio-workspace/xml-to-csv" />
+	</file:config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="e6ad1beb-7158-4b6a-a99d-e35e3a595ff0" >
+		<file:connection workingDir="/home/sairaghav/AnypointStudio/studio-workspace/xml-to-csv" />
+	</file:config>
+	<file:config name="File_Config1" doc:name="File Config" doc:id="8ea7e335-3f1c-4969-bff5-3342954e08ea" >
+		<file:connection workingDir="/home/sairaghav/AnypointStudio/studio-workspace/xml-to-csv" />
+	</file:config>
+	<flow name="xml-to-csvFlow" doc:id="ee99a3a8-f39c-4707-b7d9-b8b8c4e291dd" >
+		<http:listener doc:name="Listener" doc:id="81b50429-d7f1-4cdf-8c5c-3a9246cf8e61" config-ref="HTTP_Listener_config" path="/xmltocsv"/>
+		<file:read doc:name="Valid Items Read" doc:id="fe8e6a1c-cd84-4e82-9dd7-1d6b92841cba" config-ref="read_File_Config" path="/home/sairaghav/AnypointStudio/studio-workspace/mule/items.xml" outputMimeType="application/xml"/>
+		<logger level="INFO" doc:name="Logger" doc:id="4ea7ae9b-d354-464a-b3db-88820b21cf41" message="#[payload]"/>
+		<ee:transform doc:name="Valid Items Message" doc:id="f5d214a7-38be-47cb-b51e-e51c58eccfc4">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/csv quoteValues=true, separator="|~", header=true, escape="\""
+ ---
+flatten(payload.Items.*Item) map ((record, index) -> 
+    {
+  vendorId: record.VendorID as Number default '',
+  itemCode: record.ItemCode,
+  itemName: record.ItemName,
+  itemDescription: record.ItemDescription,
+  itemPrice: record.Price,
+  exportValue: record.ExportValue        
+    }
+) filter($.vendorId > 0)
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<file:write doc:name="Valid_Items Write" doc:id="efbaadbf-1a3b-40ba-98bc-2b40deed63c2" config-ref="File_Config" path="/home/sairaghav/AnypointStudio/studio-workspace/mule/output/validItems.csv">
+		</file:write>
+		<file:read doc:name="Invalid_Read" doc:id="5c6d7503-d550-41fb-a0e6-ae9f84714dfb" config-ref="read_File_Config" path="/home/sairaghav/AnypointStudio/studio-workspace/mule/items.xml" outputMimeType="application/xml" />
+		<ee:transform doc:name="Invalid Items Message" doc:id="536e7e3f-ec7e-4075-ade0-d078926a525d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/csv quoteValues=true, separator="|~", header=true
+ ---
+flatten(payload.Items.*Item) map ((record, index) -> 
+    {
+  vendorId: record.VendorID as Number default 0,
+  itemCode: record.ItemCode,
+  itemName: record.ItemName,
+  itemDescription: record.ItemDescription,
+  itemPrice: record.Price,
+  exportValue: record.ExportValue        
+    }
+) filter($.vendorId == 0)
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<file:write doc:name="Invalid_Items Write" doc:id="c945539d-6708-4bcd-a8f2-fe83e60ec6e4" config-ref="File_Config" path="/home/sairaghav/AnypointStudio/studio-workspace/mule/output/invalidItems.csv" />
+	</flow>
+</mule>
